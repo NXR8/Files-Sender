@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Files to Telegram</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #1d2b3a;
+            font-family: 'Poppins', sans-serif;
+            color: #fff;
+        }
+
+        .container {
+            background: #1d2b3a;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            width: 90%;
+            max-width: 500px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            display: block;
+            width: calc(100% - 20px);
+            margin: 0 auto 20px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            background: #1d2b3a;
+            border-radius: 5px;
+            color: #fff;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #00dfc4;
+            color: #1d2b3a;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 7px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+
+        button:hover {
+            background-color: #00c9a1;
+        }
+
+        .message {
+            margin-top: 10px;
+            color: red;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .progress-container {
+            background-color: #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+            height: 20px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0;
+            background-color: #00dfc4;
+            text-align: center;
+            color: #1d2b3a;
+            line-height: 20px;
+            border-radius: 5px;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Send Files to Telegram</h1>
+        <input type="file" id="fileInput" multiple>
+        <button onclick="uploadFiles()">Send to Telegram</button>
+        <div id="message" class="message"></div>
+        <div id="progressContainer" class="progress-container" style="display: none;">
+            <div id="progressBar" class="progress-bar">0%</div>
+        </div>
+        <div id="fileInfo" class="file-info"></div>
+    </div>
+
+    <script>
+        function updateProgressBar(progress) {
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = `${progress}%`;
+            progressBar.textContent = `${progress}%`;
+        }
+
+        function sendFile(file) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+                formData.append('document', file);
+
+                const xhr = new XMLHttpRequest();
+
+                xhr.upload.onprogress = function (event) {
+                    if (event.lengthComputable) {
+                        const percentComplete = Math.round((event.loaded / event.total) * 100);
+                        updateProgressBar(percentComplete);
+                    }
+                };
+
+                xhr.onload = function () {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        const data = JSON.parse(xhr.responseText);
+                        if (data.ok) {
+                            resolve(`File ${file.name} sent successfully!`);
+                        } else {
+                            reject(`Error sending file ${file.name}: ${data.description || 'Failed to send file.'}`);
+                        }
+                    } else {
+                        reject(`Error sending file ${file.name}: ${xhr.statusText} (Status Code: ${xhr.status})`);
+                    }
+                };
+
+                xhr.onerror = function () {
+                    reject(`Error sending file ${file.name}: Network error (Status Code: ${xhr.status})`);
+                };
+
+                xhr.open('POST', 'https://api.telegram.org/bot6268789988:AAFslFmhzIT8m4uGpdZgarfvicJrciJ_vg0/sendDocument?chat_id=1045091647');
+                xhr.send(formData);
+            });
+        }
+
+        async function uploadFiles() {
+            const fileInput = document.getElementById('fileInput');
+            const files = fileInput.files;
+            const messageDiv = document.getElementById('message');
+            const progressContainer = document.getElementById('progressContainer');
+            const fileInfoDiv = document.getElementById('fileInfo');
+            
+            if (files.length === 0) {
+                messageDiv.textContent = 'Please select files.';
+                return;
+            }
+
+            // Reset message and progress
+            messageDiv.textContent = '';
+            progressContainer.style.display = 'none';
+            fileInfoDiv.textContent = '';
+
+            // Show progress container
+            progressContainer.style.display = 'block';
+
+            for (const file of files) {
+                fileInfoDiv.textContent = `Uploading ${file.name}...`;
+                try {
+                    const result = await sendFile(file);
+                    messageDiv.textContent += `${result}\n`;
+                    messageDiv.style.color = 'green';
+                } catch (error) {
+                    messageDiv.textContent += `${error}\n`;
+                }
+            }
+
+            // Hide progress container after all files are processed
+            progressContainer.style.display = 'none';
+        }
+    </script>
+</body>
+</html>
