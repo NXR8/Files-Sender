@@ -16,6 +16,7 @@
             background: #1d2b3a;
             font-family: 'Poppins', sans-serif;
             color: #fff;
+            flex-direction: column;
         }
 
         .container {
@@ -36,33 +37,68 @@
         }
 
         input[type="file"] {
-            display: block;
-            width: calc(100% - 20px);
-            margin: 0 auto 20px;
-            padding: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.25);
-            background: #1d2b3a;
-            border-radius: 5px;
+            display: none;
+        }
+
+        .custom-file-upload {
+            display: inline-block;
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #1d2b3a;
             color: #fff;
-            font-size: 1em;
-            box-sizing: border-box;
+            border-radius: 7px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            border: 1px solid #00dfc4;
+            text-align: center;
+        }
+
+        .custom-file-upload:hover {
+            background-color: #00dfc4;
+            color: #1d2b3a;
         }
 
         button {
-            background-color: #00dfc4;
-            color: #1d2b3a;
-            border: none;
+            display: flex;
+            justify-content: center;
+            font-size: 16px;
             padding: 15px 30px;
             border-radius: 7px;
-            font-size: 16px;
+            background-color: #1d2b3a;
+            color: #fff;
             cursor: pointer;
-            width: 100%;
-            margin-bottom: 20px;
-            box-sizing: border-box;
+            width: 90%;
+            max-width: 250px;
+            margin: 10px auto;
+            border: 1px solid #00dfc4;
+            text-align: center;
         }
 
         button:hover {
-            background-color: #00c9a1;
+            background-color: #00dfc4;
+            color: #1d2b3a;
+        }
+
+        .cancel-button {
+            background-color: #ff4b5c;
+            border: 1px solid #ff4b5c;
+            display: flex;
+            justify-content: center;
+            font-size: 16px;
+            padding: 15px 30px;
+            border-radius: 7px;
+            background-color: #1d2b3a;
+            color: #fff;
+            cursor: pointer;
+            width: 90%;
+            max-width: 250px;
+            margin: 10px auto;
+            text-align: center;
+        }
+
+        .cancel-button:hover {
+            background-color: #e63946;
+            color: #1d2b3a;
         }
 
         .message {
@@ -78,42 +114,75 @@
             overflow: hidden;
             height: 20px;
             width: 100%;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
         }
 
         .progress-bar {
             height: 100%;
             width: 0;
             background-color: #00dfc4;
-            text-align: center;
             color: #1d2b3a;
             line-height: 20px;
             border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            left: 0;
+            top: 0;
         }
 
         .file-info {
             margin-top: 10px;
             color: #fff;
+            display: none;
+        }
+
+        .speed-info {
+            margin-top: 10px;
+            color: #fff;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Send Files to Telegram</h1>
+        <label for="fileInput" class="custom-file-upload">Choose Files</label>
         <input type="file" id="fileInput" multiple>
         <button onclick="uploadFiles()">Send to Telegram</button>
+        <button id="cancelButton" class="cancel-button" onclick="cancelUpload()">Cancel Upload</button>
         <div id="message" class="message"></div>
-        <div id="progressContainer" class="progress-container" style="display: none;">
-            <div id="progressBar" class="progress-bar">0%</div>
+        <div id="progressContainer" class="progress-container" style="display: none; position: relative;">
+            <div id="progressBar" class="progress-bar" style="position: absolute; top: 0; bottom: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: center;">0%</div>
+        </div>
+        
         </div>
         <div id="fileInfo" class="file-info"></div>
+        <div id="speedInfo" class="speed-info" style="display: none;">Upload speed: 0 KB/s</div>
     </div>
 
     <script>
+        let xhrArray = [];
+        let startTime;
+        let previousLoaded = 0;
+
         function updateProgressBar(progress) {
             const progressBar = document.getElementById('progressBar');
             progressBar.style.width = `${progress}%`;
             progressBar.textContent = `${progress}%`;
+        }
+
+        function updateSpeedInfo(loaded, elapsed) {
+            const speedInfo = document.getElementById('speedInfo');
+            const bytesUploaded = loaded - previousLoaded; // كمية البيانات التي تم رفعها منذ التحديث الأخير
+            previousLoaded = loaded;
+            const speed = (bytesUploaded / 1024) / (elapsed / 1000); // سرعة الرفع بالكيلوبايت في الثانية
+            speedInfo.textContent = `Upload speed: ${speed.toFixed(2)} KB/s`;
         }
 
         function sendFile(file) {
@@ -122,11 +191,14 @@
                 formData.append('document', file);
 
                 const xhr = new XMLHttpRequest();
+                xhrArray.push(xhr);
 
                 xhr.upload.onprogress = function (event) {
                     if (event.lengthComputable) {
                         const percentComplete = Math.round((event.loaded / event.total) * 100);
+                        const elapsed = Date.now() - startTime;
                         updateProgressBar(percentComplete);
+                        updateSpeedInfo(event.loaded, elapsed);
                     }
                 };
 
@@ -158,22 +230,27 @@
             const messageDiv = document.getElementById('message');
             const progressContainer = document.getElementById('progressContainer');
             const fileInfoDiv = document.getElementById('fileInfo');
+            const speedInfoDiv = document.getElementById('speedInfo');
             
             if (files.length === 0) {
                 messageDiv.textContent = 'Please select files.';
                 return;
             }
 
-            // Reset message and progress
             messageDiv.textContent = '';
             progressContainer.style.display = 'none';
             fileInfoDiv.textContent = '';
+            fileInfoDiv.style.display = 'none';
+            speedInfoDiv.style.display = 'none';
 
-            // Show progress container
             progressContainer.style.display = 'block';
+            speedInfoDiv.style.display = 'block';
 
             for (const file of files) {
                 fileInfoDiv.textContent = `Uploading ${file.name}...`;
+                fileInfoDiv.style.display = 'block';
+                startTime = Date.now();
+                previousLoaded = 0;
                 try {
                     const result = await sendFile(file);
                     messageDiv.textContent += `${result}\n`;
@@ -183,8 +260,19 @@
                 }
             }
 
-            // Hide progress container after all files are processed
             progressContainer.style.display = 'none';
+            fileInfoDiv.style.display = 'none';
+            speedInfoDiv.style.display = 'none';
+        }
+
+        function cancelUpload() {
+            xhrArray.forEach(xhr => xhr.abort());
+            document.getElementById('message').textContent = 'Upload cancelled.';
+            document.getElementById('fileInfo').style.display = 'none';
+            document.getElementById('progressBar').style.width = '0%';
+            document.getElementById('progressBar').textContent = '0%';
+            document.getElementById('progressContainer').style.display = 'none';
+            document.getElementById('speedInfo').style.display = 'none';
         }
     </script>
 </body>
